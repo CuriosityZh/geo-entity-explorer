@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GEO Entity Explorer</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #09090f;
+    --surface: #111118;
+    --surface2: #17171f;
+    --border: rgba(255,255,255,0.06);
+    --border2: rgba(255,255,255,0.12);
+    --text: #e8e8f0;
+    --muted: #6b6b80;
+    --accent: #7c6af7;
+
+    --ingredient: #7c6af7;
+    --drug: #2ec4b6;
+    --company: #ff6b4a;
+    --trial: #4a9eff;
+    --molecule: #f4a522;
+    --condition: #e05cb8;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(124,106,247,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(124,106,247,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Header */
+  header {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 24px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(9,9,15,0.9);
+    backdrop-filter: blur(12px);
+    flex-shrink: 0;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .logo-mark {
+    width: 28px; height: 28px;
+    background: var(--accent);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: white;
+  }
+
+  .logo-text {
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text);
+  }
+
+  .logo-sub {
+    font-size: 10px;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    letter-spacing: 0.05em;
+  }
+
+  .header-stats {
+    display: flex;
+    gap: 24px;
+  }
+
+  .stat {
+    text-align: right;
+  }
+
+  .stat-value {
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+  }
+
+  .stat-label {
+    font-size: 9px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  /* Main layout */
+  .main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Sidebar */
+  .sidebar {
+    width: 260px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    background: rgba(9,9,15,0.7);
+    backdrop-filter: blur(8px);
+  }
+
+  .sidebar-section {
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar-title {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    margin-bottom: 12px;
+  }
+
+  .filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .filter-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--muted);
+    font-family: 'Syne', sans-serif;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: left;
+    width: 100%;
+  }
+
+  .filter-btn:hover {
+    background: var(--surface2);
+    color: var(--text);
+  }
+
+  .filter-btn.active {
+    background: var(--surface2);
+    border-color: var(--border2);
+    color: var(--text);
+  }
+
+  .filter-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .filter-count {
+    margin-left: auto;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+  }
+
+  /* Info panel */
+  .info-panel {
+    flex: 1;
+    padding: 16px;
+    overflow-y: auto;
+  }
+
+  .info-empty {
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.6;
+    font-family: 'Space Mono', monospace;
+  }
+
+  .info-empty .cursor {
+    display: inline-block;
+    width: 7px; height: 12px;
+    background: var(--accent);
+    animation: blink 1.2s step-end infinite;
+    vertical-align: middle;
+    margin-left: 2px;
+  }
+
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+  .info-node-name {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--text);
+    margin-bottom: 4px;
+    line-height: 1.2;
+  }
+
+  .info-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-family: 'Space Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 12px;
+  }
+
+  .info-desc {
+    font-size: 12px;
+    color: #a0a0b8;
+    line-height: 1.7;
+    margin-bottom: 16px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  .info-connections {
+    border-top: 1px solid var(--border);
+    padding-top: 12px;
+  }
+
+  .conn-title {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  .conn-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 0;
+    font-size: 11px;
+    color: #a0a0b8;
+    font-family: 'Space Mono', monospace;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .conn-arrow {
+    color: var(--muted);
+    font-size: 10px;
+  }
+
+  .conn-label {
+    color: var(--muted);
+    font-size: 10px;
+    flex: 1;
+  }
+
+  .conn-target {
+    color: var(--text);
+  }
+
+  /* Canvas area */
+  .canvas-wrap {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+
+  canvas {
+    position: absolute;
+    inset: 0;
+  }
+
+  /* Zoom controls */
+  .zoom-controls {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    z-index: 5;
+  }
+
+  .zoom-btn {
+    width: 32px; height: 32px;
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 16px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Space Mono', monospace;
+    transition: background 0.1s;
+  }
+
+  .zoom-btn:hover { background: var(--surface2); }
+
+  /* Hint */
+  .hint {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    font-size: 10px;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    z-index: 5;
+    line-height: 1.8;
+  }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+  }
+
+  .legend-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-mark">G</div>
+    <div>
+      <div class="logo-text">Geo Explorer</div>
+      <div class="logo-sub">Entity Graph · Health Datasets</div>
+    </div>
+  </div>
+  <div class="header-stats">
+    <div class="stat">
+      <div class="stat-value" id="node-count">17</div>
+      <div class="stat-label">Entities</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value" id="edge-count">18</div>
+      <div class="stat-label">Relations</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value">6</div>
+      <div class="stat-label">Types</div>
+    </div>
+  </div>
+</header>
+
+<div class="main">
+  <div class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-title">Filter by Type</div>
+      <div class="filter-group" id="filters">
+        <button class="filter-btn active" data-type="all">
+          <span class="filter-dot" style="background:var(--text)"></span>
+          All entities
+          <span class="filter-count">17</span>
+        </button>
+        <button class="filter-btn" data-type="Ingredient">
+          <span class="filter-dot" style="background:var(--ingredient)"></span>
+          Ingredient
+          <span class="filter-count">2</span>
+        </button>
+        <button class="filter-btn" data-type="Drug">
+          <span class="filter-dot" style="background:var(--drug)"></span>
+          Drug
+          <span class="filter-count">4</span>
+        </button>
+        <button class="filter-btn" data-type="Company">
+          <span class="filter-dot" style="background:var(--company)"></span>
+          Company
+          <span class="filter-count">2</span>
+        </button>
+        <button class="filter-btn" data-type="Clinical Trial">
+          <span class="filter-dot" style="background:var(--trial)"></span>
+          Clinical Trial
+          <span class="filter-count">3</span>
+        </button>
+        <button class="filter-btn" data-type="Molecule">
+          <span class="filter-dot" style="background:var(--molecule)"></span>
+          Molecule
+          <span class="filter-count">2</span>
+        </button>
+        <button class="filter-btn" data-type="Condition">
+          <span class="filter-dot" style="background:var(--condition)"></span>
+          Condition
+          <span class="filter-count">4</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-title">Legend</div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--ingredient)"></div>Ingredient</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--drug)"></div>Drug</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--company)"></div>Company</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--trial)"></div>Clinical Trial</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--molecule)"></div>Molecule</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--condition)"></div>Condition</div>
+      </div>
+    </div>
+
+    <div class="info-panel" id="info-panel">
+      <div class="info-empty">
+        Click any node<br>to explore entity<br>details &amp; relations<span class="cursor"></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="canvas-wrap">
+    <canvas id="c"></canvas>
+    <div class="zoom-controls">
+      <button class="zoom-btn" onclick="zoom(1.2)">+</button>
+      <button class="zoom-btn" onclick="zoom(0.8)">−</button>
+      <button class="zoom-btn" onclick="resetView()" title="Reset">⌂</button>
+    </div>
+    <div class="hint">
+      drag to move · scroll to zoom · click node to inspect
+    </div>
+  </div>
+</div>
+
+<script>
+const TYPE_COLORS = {
+  'Ingredient': '#7c6af7',
+  'Drug': '#2ec4b6',
+  'Company': '#ff6b4a',
+  'Clinical Trial': '#4a9eff',
+  'Molecule': '#f4a522',
+  'Condition': '#e05cb8',
+};
+
+const RAW_NODES = [
+  { id: 'sema', label: 'Semaglutide', type: 'Ingredient', desc: 'GLP-1 receptor agonist. Active ingredient in Ozempic and Wegovy. Developed by Novo Nordisk for type 2 diabetes and obesity management.' },
+  { id: 'ozempic', label: 'Ozempic', type: 'Drug', desc: 'Brand: semaglutide 0.5/1mg injectable. Approved for type 2 diabetes management and cardiovascular risk reduction.' },
+  { id: 'wegovy', label: 'Wegovy', type: 'Drug', desc: 'Brand: semaglutide 2.4mg injectable. Approved for chronic weight management in adults with obesity.' },
+  { id: 'rybelsus', label: 'Rybelsus', type: 'Drug', desc: 'Oral tablet form of semaglutide. First oral GLP-1 receptor agonist approved for type 2 diabetes.' },
+  { id: 'novo', label: 'Novo Nordisk', type: 'Company', desc: 'Danish pharmaceutical company. Global leader in diabetes care and metabolic disease treatments. Manufacturer of semaglutide products.' },
+  { id: 'glp1', label: 'GLP-1 Receptor', type: 'Molecule', desc: 'Glucagon-like peptide-1 receptor. G protein-coupled receptor expressed in pancreatic beta cells. Primary target of semaglutide.' },
+  { id: 'nct1', label: 'SUSTAIN-6', type: 'Clinical Trial', desc: 'NCT01720446. Phase 3 trial evaluating cardiovascular outcomes with semaglutide in type 2 diabetes patients. N=3,297.' },
+  { id: 'nct2', label: 'STEP-1', type: 'Clinical Trial', desc: 'NCT03548935. Phase 3 trial of semaglutide 2.4mg for weight management in adults with obesity without diabetes. N=1,961.' },
+  { id: 'nct3', label: 'SELECT', type: 'Clinical Trial', desc: 'NCT03574597. Landmark trial showing 20% reduction in major cardiovascular events with semaglutide in obese adults.' },
+  { id: 't2d', label: 'Type 2 Diabetes', type: 'Condition', desc: 'Chronic metabolic disorder. Characterized by insulin resistance and hyperglycemia. Affects ~537 million adults globally.' },
+  { id: 'obesity', label: 'Obesity', type: 'Condition', desc: 'BMI ≥30 kg/m². Chronic metabolic disease. Associated with increased cardiovascular risk and insulin resistance.' },
+  { id: 'cvd', label: 'Cardiovascular Disease', type: 'Condition', desc: 'Major cardiovascular events including heart attack and stroke. Semaglutide demonstrated significant risk reduction.' },
+  { id: 'insulin', label: 'Insulin', type: 'Molecule', desc: 'Pancreatic hormone produced by beta cells. Key regulator of blood glucose. GLP-1 receptor stimulation enhances insulin secretion.' },
+  { id: 'ibuprofen', label: 'Ibuprofen', type: 'Ingredient', desc: 'Non-steroidal anti-inflammatory drug (NSAID). Inhibits COX-1 and COX-2 enzymes. Widely used analgesic and antipyretic.' },
+  { id: 'advil', label: 'Advil', type: 'Drug', desc: 'Brand name ibuprofen. OTC analgesic and anti-inflammatory. Available in tablet, capsule and liquid gel forms.' },
+  { id: 'pfizer', label: 'Pfizer', type: 'Company', desc: 'American multinational pharmaceutical corporation. One of the world\'s largest pharma companies by revenue.' },
+  { id: 'inflam', label: 'Inflammation', type: 'Condition', desc: 'Systemic inflammatory response. Primary target of NSAIDs including ibuprofen. Key mechanism in pain, fever and swelling.' },
+];
+
+const RAW_EDGES = [
+  { from: 'sema', to: 'ozempic', label: 'brand drug' },
+  { from: 'sema', to: 'wegovy', label: 'brand drug' },
+  { from: 'sema', to: 'rybelsus', label: 'brand drug' },
+  { from: 'novo', to: 'sema', label: 'manufactures' },
+  { from: 'novo', to: 'ozempic', label: 'markets' },
+  { from: 'novo', to: 'wegovy', label: 'markets' },
+  { from: 'sema', to: 'glp1', label: 'targets' },
+  { from: 'sema', to: 'nct1', label: 'studied in' },
+  { from: 'sema', to: 'nct2', label: 'studied in' },
+  { from: 'sema', to: 'nct3', label: 'studied in' },
+  { from: 'ozempic', to: 't2d', label: 'indicated for' },
+  { from: 'wegovy', to: 'obesity', label: 'indicated for' },
+  { from: 'nct1', to: 'cvd', label: 'outcome' },
+  { from: 'nct3', to: 'cvd', label: 'outcome' },
+  { from: 'glp1', to: 'insulin', label: 'stimulates' },
+  { from: 'ibuprofen', to: 'advil', label: 'brand drug' },
+  { from: 'pfizer', to: 'ibuprofen', label: 'manufactures' },
+  { from: 'ibuprofen', to: 'inflam', label: 'indicated for' },
+];
+
+// Canvas setup
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const wrap = canvas.parentElement;
+
+let W, H;
+let nodes = [], edges = [];
+let selected = null;
+let dragging = null, dragOffX = 0, dragOffY = 0;
+let activeFilter = 'all';
+let scale = 1, panX = 0, panY = 0;
+let isPanning = false, panStartX = 0, panStartY = 0, panStartPX = 0, panStartPY = 0;
+let lastClickNode = null, lastClickTime = 0;
+
+// Particle system
+let particles = [];
+
+function resize() {
+  W = wrap.clientWidth;
+  H = wrap.clientHeight;
+  canvas.width = W;
+  canvas.height = H;
+}
+
+function initNodes() {
+  const cx = W / 2, cy = H / 2;
+  const positions = {
+    'sema':     [cx, cy],
+    'ozempic':  [cx - 170, cy - 110],
+    'wegovy':   [cx + 150, cy - 130],
+    'rybelsus': [cx - 190, cy + 90],
+    'novo':     [cx - 290, cy - 20],
+    'glp1':     [cx + 70, cy + 110],
+    'nct1':     [cx + 240, cy - 100],
+    'nct2':     [cx + 270, cy + 50],
+    'nct3':     [cx + 200, cy + 170],
+    't2d':      [cx - 70, cy - 210],
+    'obesity':  [cx + 90, cy - 220],
+    'cvd':      [cx + 330, cy - 20],
+    'insulin':  [cx + 120, cy + 210],
+    'ibuprofen':[cx - 310, cy + 130],
+    'advil':    [cx - 370, cy + 30],
+    'pfizer':   [cx - 390, cy - 90],
+    'inflam':   [cx - 260, cy + 220],
+  };
+
+  nodes = RAW_NODES.map(n => ({
+    ...n,
+    x: positions[n.id] ? positions[n.id][0] : cx + (Math.random()-0.5)*300,
+    y: positions[n.id] ? positions[n.id][1] : cy + (Math.random()-0.5)*300,
+    vx: 0, vy: 0,
+    r: n.type === 'Ingredient' ? 20 : 13,
+    glowPhase: Math.random() * Math.PI * 2,
+  }));
+
+  edges = RAW_EDGES.map(e => ({
+    ...e,
+    source: nodes.find(n => n.id === e.from),
+    target: nodes.find(n => n.id === e.to),
+    phase: Math.random() * Math.PI * 2,
+  }));
+}
+
+function visibleNodes() {
+  if (activeFilter === 'all') return nodes;
+  return nodes.filter(n => n.type === activeFilter || n.id === 'sema' || n.id === 'ibuprofen');
+}
+
+function visibleEdges() {
+  const vn = new Set(visibleNodes().map(n => n.id));
+  return edges.filter(e => vn.has(e.from) && vn.has(e.to));
+}
+
+function screenToWorld(sx, sy) {
+  return [(sx - W/2 - panX) / scale, (sy - H/2 - panY) / scale];
+}
+
+function worldToScreen(wx, wy) {
+  return [wx * scale + W/2 + panX, wy * scale + H/2 + panY];
+}
+
+let t = 0;
+function draw() {
+  t += 0.012;
+  ctx.clearRect(0, 0, W, H);
+
+  const vn = visibleNodes();
+  const ve = visibleEdges();
+
+  ctx.save();
+  ctx.translate(W/2 + panX, H/2 + panY);
+  ctx.scale(scale, scale);
+
+  // Draw edges
+  ve.forEach(e => {
+    const sx = e.source.x, sy = e.source.y;
+    const tx = e.target.x, ty = e.target.y;
+    const isHighlighted = selected && (e.from === selected.id || e.to === selected.id);
+
+    if (isHighlighted) {
+      // Animated dash
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(tx, ty);
+      const color = TYPE_COLORS[selected.type] || '#fff';
+      ctx.strokeStyle = color + '60';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([5, 5]);
+      ctx.lineDashOffset = -t * 20;
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+
+      // Edge label
+      const mx = (sx + tx) / 2;
+      const my = (sy + ty) / 2;
+      ctx.save();
+      ctx.font = '10px Space Mono, monospace';
+      ctx.textAlign = 'center';
+      const w = ctx.measureText(e.label).width + 10;
+      ctx.fillStyle = 'rgba(9,9,15,0.85)';
+      ctx.fillRect(mx - w/2, my - 9, w, 16);
+      ctx.fillStyle = '#6b6b80';
+      ctx.fillText(e.label, mx, my + 1);
+      ctx.restore();
+    } else {
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(tx, ty);
+      ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+      ctx.lineWidth = 0.8;
+      ctx.stroke();
+    }
+  });
+
+  // Draw nodes
+  vn.forEach(n => {
+    const isSelected = selected && selected.id === n.id;
+    const isConnected = selected && edges.some(e =>
+      (e.from === selected.id && e.to === n.id) ||
+      (e.to === selected.id && e.from === n.id)
+    );
+    const color = TYPE_COLORS[n.type] || '#888';
+    const glow = Math.sin(t + n.glowPhase) * 0.3 + 0.7;
+
+    // Outer glow ring (selected)
+    if (isSelected) {
+      const rings = 3;
+      for (let i = rings; i >= 1; i--) {
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, n.r + i * 6, 0, Math.PI * 2);
+        ctx.fillStyle = color + Math.floor((0.06 / i) * 255).toString(16).padStart(2,'0');
+        ctx.fill();
+      }
+    }
+
+    // Connected highlight
+    if (isConnected) {
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, n.r + 6, 0, Math.PI * 2);
+      ctx.fillStyle = color + '15';
+      ctx.fill();
+    }
+
+    // Base circle with glow
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+    const alpha = isSelected ? 'ff' : isConnected ? 'cc' : selected ? '44' : 'cc';
+    ctx.fillStyle = color + alpha;
+    ctx.fill();
+
+    // Inner highlight
+    ctx.beginPath();
+    ctx.arc(n.x, n.y - n.r * 0.2, n.r * 0.55, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.08)';
+    ctx.fill();
+
+    // Border
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+    ctx.strokeStyle = isSelected ? color : color + '80';
+    ctx.lineWidth = isSelected ? 1.5 : 0.8;
+    ctx.stroke();
+
+    // Label
+    const labelAlpha = selected ? (isSelected || isConnected ? 1 : 0.25) : 1;
+    ctx.globalAlpha = labelAlpha;
+    ctx.font = `${isSelected ? '600 ' : ''}${n.r > 16 ? 11 : 10}px Syne, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#e8e8f0';
+    const label = n.label.length > 14 ? n.label.slice(0,13)+'…' : n.label;
+    ctx.fillText(label, n.x, n.y + n.r + 13);
+    ctx.globalAlpha = 1;
+  });
+
+  ctx.restore();
+  requestAnimationFrame(draw);
+}
+
+// Interaction
+function getNodeAt(sx, sy) {
+  const [wx, wy] = screenToWorld(sx, sy);
+  return visibleNodes().find(n => Math.hypot(n.x - wx, n.y - wy) < (n.r + 6) / scale * scale);
+}
+
+canvas.addEventListener('mousedown', e => {
+  const n = getNodeAt(e.offsetX, e.offsetY);
+  if (n) {
+    dragging = n;
+    const [wx, wy] = screenToWorld(e.offsetX, e.offsetY);
+    dragOffX = n.x - wx;
+    dragOffY = n.y - wy;
+  } else {
+    isPanning = true;
+    panStartX = e.offsetX;
+    panStartY = e.offsetY;
+    panStartPX = panX;
+    panStartPY = panY;
+  }
+});
+
+canvas.addEventListener('mousemove', e => {
+  if (dragging) {
+    const [wx, wy] = screenToWorld(e.offsetX, e.offsetY);
+    dragging.x = wx + dragOffX;
+    dragging.y = wy + dragOffY;
+  } else if (isPanning) {
+    panX = panStartPX + (e.offsetX - panStartX);
+    panY = panStartPY + (e.offsetY - panStartY);
+  } else {
+    const n = getNodeAt(e.offsetX, e.offsetY);
+    canvas.style.cursor = n ? 'pointer' : 'grab';
+  }
+});
+
+canvas.addEventListener('mouseup', e => {
+  if (dragging) {
+    const [wx, wy] = screenToWorld(e.offsetX, e.offsetY);
+    const moved = Math.hypot(wx + dragOffX - dragging.x, wy + dragOffY - dragging.y);
+    if (moved < 3 / scale) {
+      selected = (selected && selected.id === dragging.id) ? null : dragging;
+      updateInfoPanel();
+    }
+  }
+  dragging = null;
+  isPanning = false;
+});
+
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const factor = e.deltaY < 0 ? 1.1 : 0.9;
+  const mx = e.offsetX - W/2 - panX;
+  const my = e.offsetY - H/2 - panY;
+  panX -= mx * (factor - 1);
+  panY -= my * (factor - 1);
+  scale *= factor;
+  scale = Math.max(0.3, Math.min(4, scale));
+}, { passive: false });
+
+function zoom(f) {
+  panX -= (W/2) * (f - 1) * 0;
+  panY -= (H/2) * (f - 1) * 0;
+  scale = Math.max(0.3, Math.min(4, scale * f));
+}
+
+function resetView() {
+  scale = 1; panX = 0; panY = 0;
+}
+
+// Filters
+document.getElementById('filters').addEventListener('click', e => {
+  const btn = e.target.closest('.filter-btn');
+  if (!btn) return;
+  activeFilter = btn.dataset.type;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  selected = null;
+  updateInfoPanel();
+  const vn = visibleNodes();
+  document.getElementById('node-count').textContent = vn.length;
+  document.getElementById('edge-count').textContent = visibleEdges().length;
+});
+
+function updateInfoPanel() {
+  const panel = document.getElementById('info-panel');
+  if (!selected) {
+    panel.innerHTML = `<div class="info-empty">Click any node<br>to explore entity<br>details &amp; relations<span class="cursor"></span></div>`;
+    return;
+  }
+  const n = selected;
+  const color = TYPE_COLORS[n.type];
+  const conns = RAW_EDGES.filter(e => e.from === n.id || e.to === n.id);
+
+  const connHTML = conns.map(e => {
+    const isOut = e.from === n.id;
+    const otherId = isOut ? e.to : e.from;
+    const other = RAW_NODES.find(x => x.id === otherId);
+    const otherColor = TYPE_COLORS[other.type];
+    return `<div class="conn-item">
+      <span class="conn-arrow">${isOut ? '→' : '←'}</span>
+      <span class="conn-label">${e.label}</span>
+      <span class="conn-target" style="color:${otherColor}">${other.label}</span>
+    </div>`;
+  }).join('');
+
+  panel.innerHTML = `
+    <div class="info-node-name">${n.label}</div>
+    <div class="info-badge" style="background:${color}22;color:${color}">${n.type}</div>
+    <div class="info-desc">${n.desc}</div>
+    <div class="info-connections">
+      <div class="conn-title">${conns.length} relations</div>
+      ${connHTML}
+    </div>
+  `;
+}
+
+// Init
+resize();
+initNodes();
+draw();
+window.addEventListener('resize', () => { resize(); });
+</script>
+</body>
+</html>
