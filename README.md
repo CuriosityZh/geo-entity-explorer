@@ -6,7 +6,7 @@ An interactive graph visualization tool for exploring entity relationships in th
 
 ## Live Demo
 
-👉 **[Open Demo](https://YOUR_USERNAME.github.io/geo-entity-explorer/)**
+👉 **[Open Demo](https://CuriosityZh.github.io/geo-entity-explorer/)**
 
 ---
 
